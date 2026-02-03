@@ -1,4 +1,7 @@
 # ChatFormatterPro
+## Application Screenshot
+
+![ChatFormatterPro Main UI](Screenshot%202026-02-04%20010301.png)
 
 ChatFormatterPro is a Windows (WPF) application that converts ChatGPT content into clean, structured formats.
 
