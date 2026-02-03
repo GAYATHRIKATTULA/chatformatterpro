@@ -1,0 +1,356 @@
+﻿<Window x:Class="ChatFormatterPro.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Chat Formatter Pro"
+        Height="700"
+        Width="1250"
+        Background="White"
+        Icon="GRlogo.ico">
+
+    <Window.Resources>
+
+        <!-- Ribbon-like button style -->
+        <Style x:Key="RibbonButton" TargetType="Button">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="#D0D0D0"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="4"/>
+            <Setter Property="Margin" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="3">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#F0F0F0"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Background" Value="#E0E0E0"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Small action buttons (Cut/Copy/Paste Insert) -->
+        <Style x:Key="SmallRibbonButton" TargetType="Button" BasedOn="{StaticResource RibbonButton}">
+            <Setter Property="Width" Value="90"/>
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="Padding" Value="2"/>
+        </Style>
+
+    </Window.Resources>
+
+    <DockPanel>
+
+        <!-- TOP TOOLBAR AREA -->
+        <Border DockPanel.Dock="Top"
+                Background="White"
+                BorderBrush="#D0D0D0"
+                BorderThickness="0,0,0,1"
+                Padding="10" Width="1233">
+
+            <!-- One row ribbon -->
+            <Grid VerticalAlignment="Top">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="60"/>
+                    <!-- Logo -->
+                    <ColumnDefinition Width="260"/>
+                    <!-- Clipboard -->
+                    <ColumnDefinition Width="240"/>
+                    <!-- Editing -->
+                    <ColumnDefinition Width="430"/>
+                    <!-- Conversion -->
+                    <ColumnDefinition Width="240"/>
+                    <!-- Prompts -->
+                    <ColumnDefinition Width="*"/>
+                    <!-- Spacer -->
+                </Grid.ColumnDefinitions>
+
+                <!-- LOGO ONLY -->
+                <Grid Grid.Column="0" VerticalAlignment="Top">
+                    <Image Source="GRlogo.ico"
+                           Width="36"
+                           Height="36"
+                           Stretch="Uniform"
+                           HorizontalAlignment="Left"
+                           VerticalAlignment="Top"/>
+                </Grid>
+
+                <!-- CLIPBOARD GROUP -->
+                <Border Grid.Column="1"
+                        BorderBrush="#C8C8C8"
+                        BorderThickness="1"
+                        Padding="8"
+                        Margin="10,0,10,0"
+                        Height="140"
+                        VerticalAlignment="Top">
+
+                    <DockPanel LastChildFill="True">
+                        <TextBlock DockPanel.Dock="Bottom"
+                                   Text="Clipboard"
+                                   FontSize="12"
+                                   Foreground="#444"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,6,0,0"/>
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="100"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Paste Replace (Big) -->
+                            <Button Grid.Column="0"
+                                    Style="{StaticResource RibbonButton}"
+                                    Width="90"
+                                    Height="90"
+                                    Click="PasteReplace_Click">
+                                <StackPanel>
+                                    <TextBlock Text="📋" FontSize="30" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="Paste" FontSize="11" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="Replace" FontSize="11" HorizontalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+
+                            <!-- Cut / Copy / Paste Insert (Aligned) -->
+                            <StackPanel Grid.Column="1"
+                                        Margin="10,0,0,0"
+                                        VerticalAlignment="Center">
+
+                                <Button Style="{StaticResource SmallRibbonButton}"
+                                        Click="Cut_Click">
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                        <TextBlock Text="✂" FontSize="14"/>
+                                        <TextBlock Text="Cut" FontSize="11" Margin="6,0,0,0"/>
+                                    </StackPanel>
+                                </Button>
+
+                                <Button Style="{StaticResource SmallRibbonButton}"
+                                        Margin="0,6,0,0"
+                                        Click="Copy_Click">
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                        <TextBlock Text="📄" FontSize="14"/>
+                                        <TextBlock Text="Copy" FontSize="11" Margin="6,0,0,0"/>
+                                    </StackPanel>
+                                </Button>
+
+                                <Button Style="{StaticResource SmallRibbonButton}"
+                                        Margin="0,6,0,0"
+                                        Click="PasteInsert_Click">
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                        <TextBlock Text="📥" FontSize="14"/>
+                                        <TextBlock Text="Paste Insert" FontSize="11" Margin="6,0,0,0"/>
+                                    </StackPanel>
+                                </Button>
+
+                            </StackPanel>
+                        </Grid>
+                    </DockPanel>
+                </Border>
+
+                <!-- EDITING GROUP -->
+                <Border Grid.Column="2"
+                        BorderBrush="#C8C8C8"
+                        BorderThickness="1"
+                        Padding="8"
+                        Margin="0,0,10,0"
+                        Height="140"
+                        VerticalAlignment="Top">
+
+                    <DockPanel LastChildFill="True">
+                        <TextBlock DockPanel.Dock="Bottom"
+                                   Text="Editing"
+                                   FontSize="12"
+                                   Foreground="#555"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,6,0,0"/>
+
+                        <UniformGrid Columns="3" Rows="1" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <Button Style="{StaticResource RibbonButton}"
+                                    Width="70"
+                                    Height="60"
+                                    Click="SelectAll_Click">
+                                <StackPanel>
+                                    <TextBlock Text="▦" FontSize="22" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="Select All" FontSize="11" HorizontalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+
+                            <Button Style="{StaticResource RibbonButton}"
+                                    Width="70"
+                                    Height="60"
+                                    Click="Undo_Click">
+                                <StackPanel>
+                                    <TextBlock Text="↶" FontSize="22" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="Undo" FontSize="11" HorizontalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+
+                            <Button Style="{StaticResource RibbonButton}"
+                                    Width="70"
+                                    Height="60"
+                                    Click="Clear_Click">
+                                <StackPanel>
+                                    <TextBlock Text="🗑" FontSize="22" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="Clear" FontSize="11" HorizontalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                        </UniformGrid>
+                    </DockPanel>
+                </Border>
+
+                <!-- CONVERSION OPTIONS GROUP -->
+                <Border Grid.Column="3"
+                        BorderBrush="#C8C8C8"
+                        BorderThickness="1"
+                        Padding="10"
+                        Margin="0,0,38,0"
+                        Height="140"
+                        VerticalAlignment="Center">
+
+                    <DockPanel LastChildFill="True">
+                        <TextBlock DockPanel.Dock="Bottom"
+                                   Text="Conversion Options"
+                                   FontSize="12"
+                                   Foreground="#555"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,6,0,0"/>
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="210"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0">
+                                <CheckBox x:Name="ForceMathCheckBox" Content="Force ChatGPT Math" FontSize="11"/>
+                                <CheckBox x:Name="RemoveLinesCheckBox" Content="Remove Horizontal Lines" FontSize="11" Margin="0,4,0,0"/>
+                                <CheckBox x:Name="RemoveHeadingEmojiCheckBox" Content="Remove Headings Emojis" FontSize="11" Margin="0,4,0,0"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="1">
+                                <RadioButton x:Name="NormalBulletsRadio" IsChecked="True" FontSize="11">
+                                    <TextBlock Text="Normal Bullet List (No Emoji)" TextWrapping="Wrap"/>
+                                </RadioButton>
+
+                                <RadioButton x:Name="EmojiBulletsRadio" FontSize="11" Margin="0,4,0,0">
+                                    <TextBlock Text="Keep Emoji in Bullet List" TextWrapping="Wrap"/>
+                                </RadioButton>
+
+                                <RadioButton x:Name="EmojiOnlyRadio" FontSize="11" Margin="0,4,0,0">
+                                    <TextBlock Text="Emoji Only" TextWrapping="Wrap"/>
+                                </RadioButton>
+                            </StackPanel>
+                        </Grid>
+                    </DockPanel>
+                </Border>
+
+                <!-- CHATGPT PROMPTS GROUP -->
+                <Border Grid.Column="3"
+        BorderBrush="#C8C8C8"
+        BorderThickness="1"
+        Padding="8"
+        Height="140"
+        VerticalAlignment="Center" Margin="413,0,28,0" Grid.ColumnSpan="2">
+
+                    <DockPanel LastChildFill="True" Margin="0,0,1,0">
+                        <TextBlock DockPanel.Dock="Bottom"
+                   Text="ChatGPT Prompts"
+                   FontSize="12"
+                   Foreground="#555"
+                   HorizontalAlignment="Center"
+                   Margin="0,6,0,0"/>
+
+                        <!-- Center both buttons nicely -->
+                        <UniformGrid Columns="2"
+                     Rows="1"
+                     HorizontalAlignment="Center"
+                     VerticalAlignment="Center"
+                     Margin="6,0,6,0">
+
+                            <Button Style="{StaticResource RibbonButton}"
+                    Width="90"
+                    Height="80"
+                    Click="RenderLatex_Click">
+                                <StackPanel>
+                                    <Border Background="#0078D7" CornerRadius="3" Padding="4" HorizontalAlignment="Center">
+                                        <TextBlock Text="AB" Foreground="White" FontWeight="Bold"/>
+                                    </Border>
+                                    <TextBlock Text="Render Math" FontSize="11" Margin="0,5,0,0" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="in LaTeX" FontSize="11" HorizontalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+
+                            <Button Style="{StaticResource RibbonButton}"
+                    Width="99"
+                    Height="80"
+                    Click="RewriteLatex_Click">
+                                <StackPanel Width="91">
+                                    <Border Background="#0078D7" CornerRadius="3" Padding="4" HorizontalAlignment="Center">
+                                        <TextBlock Text="AB" Foreground="White" FontWeight="Bold"/>
+                                    </Border>
+                                    <TextBlock Text="Rewrite Content" FontSize="11" Margin="0,5,0,0" HorizontalAlignment="Center" Height="20" Width="86"/>
+                                    <TextBlock Text="in LaTeX" FontSize="11" HorizontalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+
+                        </UniformGrid>
+                    </DockPanel>
+                </Border>
+
+            </Grid>
+        </Border>
+
+        <!-- MAIN CONTENT -->
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <TextBox x:Name="InputTextBox"
+                     Grid.Row="0"
+                     Margin="10"
+                     AcceptsReturn="True"
+                     AcceptsTab="True"
+                     TextWrapping="Wrap"
+                     VerticalScrollBarVisibility="Auto"
+                     FontSize="16"/>
+
+            <StackPanel Grid.Row="1"
+                        Orientation="Horizontal"
+                        HorizontalAlignment="Right"
+                        Margin="0,8,10,10">
+
+                <Button x:Name="ExportButton"
+                        Width="130"
+                        Height="32"
+                        Content="Export ▾"
+                        Click="ExportButton_Click">
+                    <Button.ContextMenu>
+                        <ContextMenu x:Name="ExportMenu" StaysOpen="True">
+                            <MenuItem Header="Word (DOCX)" Click="ExportToDocx_Click"/>
+                            <MenuItem Header="Excel (CSV)" Click="ExportToExcel_Click"/>
+                            <MenuItem Header="PDF" Click="SaveToPdf_Click"/>
+                            <MenuItem Header="Plain Text" Click="ExportPlainText_Click"/>
+                            <MenuItem Header="HTML" Click="ExportHtml_Click"/>
+                        </ContextMenu>
+                    </Button.ContextMenu>
+                </Button>
+
+            </StackPanel>
+        </Grid>
+
+    </DockPanel>
+</Window>
