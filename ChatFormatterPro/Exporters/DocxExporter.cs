@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq; // ✅ REQUIRED for .Any()
+using System.Linq; // ✅ REQUIRED for .Any() and LINQ
 using System.Text.RegularExpressions;
 
 using DocumentFormat.OpenXml;
@@ -8,7 +8,8 @@ using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 
 using M = DocumentFormat.OpenXml.Math;
-using Markdig;
+
+using ChatFormatterPro; // ✅ to access FileOpener
 
 namespace ChatFormatterPro.Exporters
 {
@@ -51,14 +52,44 @@ namespace ChatFormatterPro.Exporters
             // ✅ Bullet numbering id (int)
             int bulletNumId = EnsureBulletNumbering(mainPart);
 
-            foreach (var rawLine in lines)
+            for (int i = 0; i < lines.Length; i++)
             {
+                var rawLine = lines[i];
                 var line = (rawLine ?? string.Empty);
 
                 // Blank line
                 if (string.IsNullOrWhiteSpace(line))
                 {
                     body.Append(new Paragraph(new Run(new Text(""))));
+                    continue;
+                }
+
+                // ✅ TABLE detection (Markdown pipe table)
+                if (IsPipeTableLine(line))
+                {
+                    var pipeLines = new List<string>();
+
+                    // collect contiguous table lines
+                    while (i < lines.Length && IsPipeTableLine(lines[i]))
+                    {
+                        pipeLines.Add(lines[i]);
+                        i++;
+                    }
+
+                    // step back (because for-loop will i++)
+                    i--;
+
+                    // convert to rows (skip separator row if present)
+                    var rows = new List<List<string>>();
+                    for (int k = 0; k < pipeLines.Count; k++)
+                    {
+                        if (k == 1 && IsMarkdownSeparatorLine(pipeLines[k]))
+                            continue;
+
+                        rows.Add(SplitPipeRow(pipeLines[k]));
+                    }
+
+                    AppendWordTable(body, rows);
                     continue;
                 }
 
@@ -75,7 +106,7 @@ namespace ChatFormatterPro.Exporters
                     continue;
                 }
 
-                // Heading 2: ## Title
+                // Heading 2: ## Title (supports **bold**)
                 if (line.StartsWith("## "))
                 {
                     var text = line.Substring(3).Trim();
@@ -87,16 +118,14 @@ namespace ChatFormatterPro.Exporters
                         new FontSize { Val = "32" },
                         new Bold()
                     );
-
                     p.Append(r);
 
-                    // 🔥 IMPORTANT: reuse bold parser
+                    // preserve **bold**
                     AppendTextWithBoldRuns(p, text);
 
                     body.Append(p);
                     continue;
                 }
-
 
                 // Bullet: - item  OR  * item
                 if (line.StartsWith("- ") || line.StartsWith("* "))
@@ -125,9 +154,14 @@ namespace ChatFormatterPro.Exporters
                 }
             }
 
+            // ✅ Save the document
             mainPart.Document.Save();
-            OpenFileAfterExport(filePath);
+
+            // ✅ Auto-open after export
+            FileOpener.Open(filePath);
         }
+
+        // -------------------- TEXT + MATH MIX --------------------
 
         private static void AppendMixedContent(Paragraph p, string line)
         {
@@ -208,7 +242,8 @@ namespace ChatFormatterPro.Exporters
             }
         }
 
-        // ✅ FIXED: OpenXML 3.x uses NumberingInstance (not Num)
+        // -------------------- BULLET NUMBERING --------------------
+
         private static int EnsureBulletNumbering(MainDocumentPart mainPart)
         {
             var numberingPart = mainPart.NumberingDefinitionsPart;
@@ -253,6 +288,109 @@ namespace ChatFormatterPro.Exporters
 
             numbering.Save();
             return numId;
+        }
+
+        // -------------------- TABLE SUPPORT (Markdown pipe tables) --------------------
+
+        private static bool IsPipeTableLine(string line)
+        {
+            if (string.IsNullOrWhiteSpace(line)) return false;
+            line = line.Trim();
+
+            // must contain at least 2 pipes to look like a row
+            return line.Contains("|") && line.Count(c => c == '|') >= 2;
+        }
+
+        private static bool IsMarkdownSeparatorLine(string line)
+        {
+            if (string.IsNullOrWhiteSpace(line)) return false;
+            line = line.Trim();
+
+            // accept only pipes, dashes, colons, spaces/tabs
+            foreach (char ch in line)
+            {
+                if (ch != '|' && ch != '-' && ch != ':' && ch != ' ' && ch != '\t')
+                    return false;
+            }
+
+            // must contain at least one dash
+            return line.Contains("-");
+        }
+
+        private static List<string> SplitPipeRow(string line)
+        {
+            line = (line ?? "").Trim();
+
+            // Remove leading/trailing pipe
+            if (line.StartsWith("|")) line = line.Substring(1);
+            if (line.EndsWith("|")) line = line.Substring(0, line.Length - 1);
+
+            var parts = line.Split('|')
+                            .Select(x => x.Trim())
+                            .ToList();
+
+            // remove empty edges
+            while (parts.Count > 0 && parts.Count > 0 && parts[0] == "") parts.RemoveAt(0);
+            while (parts.Count > 0 && parts[^1] == "") parts.RemoveAt(parts.Count - 1);
+
+            return parts;
+        }
+
+        private static void AppendWordTable(Body body, List<List<string>> rows)
+        {
+            if (rows == null || rows.Count == 0) return;
+
+            var table = new Table();
+
+            // Borders
+            var tblProps = new TableProperties(
+                new TableBorders(
+                    new TopBorder { Val = BorderValues.Single, Size = 8 },
+                    new BottomBorder { Val = BorderValues.Single, Size = 8 },
+                    new LeftBorder { Val = BorderValues.Single, Size = 8 },
+                    new RightBorder { Val = BorderValues.Single, Size = 8 },
+                    new InsideHorizontalBorder { Val = BorderValues.Single, Size = 8 },
+                    new InsideVerticalBorder { Val = BorderValues.Single, Size = 8 }
+                )
+            );
+            table.AppendChild(tblProps);
+
+            // normalize columns
+            int colCount = rows.Max(r => r.Count);
+            foreach (var r in rows)
+                while (r.Count < colCount) r.Add("");
+
+            for (int r = 0; r < rows.Count; r++)
+            {
+                var tr = new TableRow();
+
+                for (int c = 0; c < colCount; c++)
+                {
+                    var tc = new TableCell();
+                    var p = new Paragraph();
+
+                    if (r == 0)
+                    {
+                        // header row bold
+                        var run = new Run(new RunProperties(new Bold()));
+                        p.Append(run);
+                        AppendTextWithBoldRuns(p, rows[r][c]);
+                    }
+                    else
+                    {
+                        AppendMixedContent(p, rows[r][c]);
+                    }
+
+                    tc.Append(p);
+                    tc.Append(new TableCellProperties(new TableCellWidth { Type = TableWidthUnitValues.Auto }));
+                    tr.Append(tc);
+                }
+
+                table.Append(tr);
+            }
+
+            body.Append(table);
+            body.Append(new Paragraph(new Run(new Text("")))); // spacing after table
         }
 
         // -------------------- OMML builder (simple LaTeX) --------------------
@@ -423,25 +561,6 @@ namespace ChatFormatterPro.Exporters
             return s;
         }
 
-        private static void OpenFileAfterExport(string filePath)
-        {
-            try
-            {
-                if (string.IsNullOrWhiteSpace(filePath)) return;
-                if (!System.IO.File.Exists(filePath)) return;
-
-                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = filePath,
-                    UseShellExecute = true
-                });
-            }
-            catch
-            {
-                // optional: ignore
-            }
-        }
-
         private class TokenStream
         {
             private readonly string _s;
@@ -469,6 +588,5 @@ namespace ChatFormatterPro.Exporters
                 if (StartsWith(t)) _i += t.Length;
             }
         }
-
     }
 }
