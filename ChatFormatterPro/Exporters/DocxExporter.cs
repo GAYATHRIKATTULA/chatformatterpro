@@ -112,7 +112,6 @@ namespace ChatFormatterPro.Exporters
                     var text = line.Substring(3).Trim();
                     var p = new Paragraph();
 
-                    // Apply heading font size
                     var r = new Run();
                     r.RunProperties = new RunProperties(
                         new FontSize { Val = "32" },
@@ -120,9 +119,7 @@ namespace ChatFormatterPro.Exporters
                     );
                     p.Append(r);
 
-                    // preserve **bold**
                     AppendTextWithBoldRuns(p, text);
-
                     body.Append(p);
                     continue;
                 }
@@ -154,10 +151,7 @@ namespace ChatFormatterPro.Exporters
                 }
             }
 
-            // ✅ Save the document
             mainPart.Document.Save();
-
-            // ✅ Auto-open after export
             FileOpener.Open(filePath);
         }
 
@@ -168,7 +162,7 @@ namespace ChatFormatterPro.Exporters
             int last = 0;
             var matches = InlineMathRegex.Matches(line);
 
-            // No math markers -> text only (but preserve **bold**)
+            // No \( \) markers → text only (but preserve **bold**)
             if (matches.Count == 0)
             {
                 AppendTextWithBoldRuns(p, line);
@@ -215,14 +209,12 @@ namespace ChatFormatterPro.Exporters
 
             foreach (Match m in BoldRegex.Matches(text))
             {
-                // normal part before bold
                 if (m.Index > idx)
                 {
                     var normal = text.Substring(idx, m.Index - idx);
                     p.Append(new Run(new Text(normal) { Space = SpaceProcessingModeValues.Preserve }));
                 }
 
-                // bold part
                 var boldText = m.Groups[1].Value;
                 p.Append(
                     new Run(
@@ -234,7 +226,6 @@ namespace ChatFormatterPro.Exporters
                 idx = m.Index + m.Length;
             }
 
-            // remaining normal part
             if (idx < text.Length)
             {
                 var remaining = text.Substring(idx);
@@ -261,7 +252,6 @@ namespace ChatFormatterPro.Exporters
             const int abstractNumId = 1;
             const int numId = 1;
 
-            // AbstractNum (bullet style)
             if (!numbering.Elements<AbstractNum>().Any(a => a.AbstractNumberId?.Value == abstractNumId))
             {
                 var abs = new AbstractNum() { AbstractNumberId = abstractNumId };
@@ -278,7 +268,6 @@ namespace ChatFormatterPro.Exporters
                 numbering.Append(abs);
             }
 
-            // NumberingInstance (w:num)
             if (!numbering.Elements<NumberingInstance>().Any(n => n.NumberID?.Value == numId))
             {
                 var inst = new NumberingInstance() { NumberID = numId };
@@ -290,14 +279,12 @@ namespace ChatFormatterPro.Exporters
             return numId;
         }
 
-        // -------------------- TABLE SUPPORT (Markdown pipe tables) --------------------
+        // -------------------- TABLE SUPPORT --------------------
 
         private static bool IsPipeTableLine(string line)
         {
             if (string.IsNullOrWhiteSpace(line)) return false;
             line = line.Trim();
-
-            // must contain at least 2 pipes to look like a row
             return line.Contains("|") && line.Count(c => c == '|') >= 2;
         }
 
@@ -306,14 +293,12 @@ namespace ChatFormatterPro.Exporters
             if (string.IsNullOrWhiteSpace(line)) return false;
             line = line.Trim();
 
-            // accept only pipes, dashes, colons, spaces/tabs
             foreach (char ch in line)
             {
                 if (ch != '|' && ch != '-' && ch != ':' && ch != ' ' && ch != '\t')
                     return false;
             }
 
-            // must contain at least one dash
             return line.Contains("-");
         }
 
@@ -321,7 +306,6 @@ namespace ChatFormatterPro.Exporters
         {
             line = (line ?? "").Trim();
 
-            // Remove leading/trailing pipe
             if (line.StartsWith("|")) line = line.Substring(1);
             if (line.EndsWith("|")) line = line.Substring(0, line.Length - 1);
 
@@ -329,8 +313,7 @@ namespace ChatFormatterPro.Exporters
                             .Select(x => x.Trim())
                             .ToList();
 
-            // remove empty edges
-            while (parts.Count > 0 && parts.Count > 0 && parts[0] == "") parts.RemoveAt(0);
+            while (parts.Count > 0 && parts[0] == "") parts.RemoveAt(0);
             while (parts.Count > 0 && parts[^1] == "") parts.RemoveAt(parts.Count - 1);
 
             return parts;
@@ -342,7 +325,6 @@ namespace ChatFormatterPro.Exporters
 
             var table = new Table();
 
-            // Borders
             var tblProps = new TableProperties(
                 new TableBorders(
                     new TopBorder { Val = BorderValues.Single, Size = 8 },
@@ -355,7 +337,6 @@ namespace ChatFormatterPro.Exporters
             );
             table.AppendChild(tblProps);
 
-            // normalize columns
             int colCount = rows.Max(r => r.Count);
             foreach (var r in rows)
                 while (r.Count < colCount) r.Add("");
@@ -371,9 +352,8 @@ namespace ChatFormatterPro.Exporters
 
                     if (r == 0)
                     {
-                        // header row bold
-                        var run = new Run(new RunProperties(new Bold()));
-                        p.Append(run);
+                        // header bold
+                        p.Append(new Run(new RunProperties(new Bold())));
                         AppendTextWithBoldRuns(p, rows[r][c]);
                     }
                     else
@@ -390,10 +370,11 @@ namespace ChatFormatterPro.Exporters
             }
 
             body.Append(table);
-            body.Append(new Paragraph(new Run(new Text("")))); // spacing after table
+            body.Append(new Paragraph(new Run(new Text(""))));
         }
 
-        // -------------------- OMML builder (simple LaTeX) --------------------
+        // -------------------- OMML builder --------------------
+        // Supports: \frac{a}{b}, \sqrt{...}, x^2, a_{1}
 
         private static M.OfficeMath BuildOfficeMath(string latex)
         {
@@ -458,27 +439,26 @@ namespace ChatFormatterPro.Exporters
             if (c == '{')
             {
                 var grp = ParseGroup(ts);
-                return BuildRun(string.Concat(grpText(grp)));
+                // just join group as text run (simple approach)
+                return BuildRun(ExtractPlainText(grp));
             }
 
             ts.Read();
             return BuildRun(c.ToString());
+        }
 
-            static IEnumerable<string> grpText(List<OpenXmlElement> els)
+        private static string ExtractPlainText(List<OpenXmlElement> els)
+        {
+            var sb = new System.Text.StringBuilder();
+            foreach (var el in els)
             {
-                foreach (var el in els)
+                if (el is M.Run r)
                 {
-                    if (el is M.Run r)
-                    {
-                        foreach (var t in r.Elements<M.Text>())
-                            yield return t.Text;
-                    }
-                    else
-                    {
-                        yield return "";
-                    }
+                    foreach (var t in r.Elements<M.Text>())
+                        sb.Append(t.Text);
                 }
             }
+            return sb.ToString();
         }
 
         private static List<OpenXmlElement> ParseGroup(TokenStream ts)

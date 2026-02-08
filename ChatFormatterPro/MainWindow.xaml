@@ -234,9 +234,25 @@
                             </Grid.ColumnDefinitions>
 
                             <StackPanel Grid.Column="0">
-                                <CheckBox x:Name="ForceMathCheckBox" Content="Force ChatGPT Math" FontSize="11"/>
-                                <CheckBox x:Name="RemoveLinesCheckBox" Content="Remove Horizontal Lines" FontSize="11" Margin="0,4,0,0"/>
-                                <CheckBox x:Name="RemoveHeadingEmojiCheckBox" Content="Remove Headings Emojis" FontSize="11" Margin="0,4,0,0"/>
+                                <CheckBox x:Name="ForceMathCheckBox"
+                                          Content="Force ChatGPT Math"
+                                          FontSize="11"/>
+
+                                <!-- ✅ Word Equation Export toggle -->
+                                <CheckBox x:Name="ExportAsWordEquationsCheckBox"
+                                          Content="Export DOCX as Word Equations"
+                                          FontSize="11"
+                                          Margin="0,4,0,0" Checked="ExportAsWordEquationsCheckBox_Checked"/>
+
+                                <CheckBox x:Name="RemoveLinesCheckBox"
+                                          Content="Remove Horizontal Lines"
+                                          FontSize="11"
+                                          Margin="0,4,0,0"/>
+
+                                <CheckBox x:Name="RemoveHeadingEmojiCheckBox"
+                                          Content="Remove Headings Emojis"
+                                          FontSize="11"
+                                          Margin="0,4,0,0"/>
                             </StackPanel>
 
                             <StackPanel Grid.Column="1">
@@ -258,31 +274,32 @@
 
                 <!-- CHATGPT PROMPTS GROUP -->
                 <Border Grid.Column="3"
-        BorderBrush="#C8C8C8"
-        BorderThickness="1"
-        Padding="8"
-        Height="140"
-        VerticalAlignment="Center" Margin="413,0,28,0" Grid.ColumnSpan="2">
+                        BorderBrush="#C8C8C8"
+                        BorderThickness="1"
+                        Padding="8"
+                        Height="140"
+                        VerticalAlignment="Center"
+                        Margin="413,0,28,0"
+                        Grid.ColumnSpan="2">
 
                     <DockPanel LastChildFill="True" Margin="0,0,1,0">
                         <TextBlock DockPanel.Dock="Bottom"
-                   Text="ChatGPT Prompts"
-                   FontSize="12"
-                   Foreground="#555"
-                   HorizontalAlignment="Center"
-                   Margin="0,6,0,0"/>
+                                   Text="ChatGPT Prompts"
+                                   FontSize="12"
+                                   Foreground="#555"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,6,0,0"/>
 
-                        <!-- Center both buttons nicely -->
                         <UniformGrid Columns="2"
-                     Rows="1"
-                     HorizontalAlignment="Center"
-                     VerticalAlignment="Center"
-                     Margin="6,0,6,0">
+                                     Rows="1"
+                                     HorizontalAlignment="Center"
+                                     VerticalAlignment="Center"
+                                     Margin="6,0,6,0">
 
                             <Button Style="{StaticResource RibbonButton}"
-                    Width="90"
-                    Height="80"
-                    Click="RenderLatex_Click">
+                                    Width="90"
+                                    Height="80"
+                                    Click="RenderLatex_Click">
                                 <StackPanel>
                                     <Border Background="#0078D7" CornerRadius="3" Padding="4" HorizontalAlignment="Center">
                                         <TextBlock Text="AB" Foreground="White" FontWeight="Bold"/>
@@ -293,9 +310,9 @@
                             </Button>
 
                             <Button Style="{StaticResource RibbonButton}"
-                    Width="99"
-                    Height="80"
-                    Click="RewriteLatex_Click">
+                                    Width="99"
+                                    Height="80"
+                                    Click="RewriteLatex_Click">
                                 <StackPanel Width="91">
                                     <Border Background="#0078D7" CornerRadius="3" Padding="4" HorizontalAlignment="Center">
                                         <TextBlock Text="AB" Foreground="White" FontWeight="Bold"/>
