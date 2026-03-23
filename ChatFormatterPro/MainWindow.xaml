@@ -58,7 +58,8 @@
                 Background="White"
                 BorderBrush="#D0D0D0"
                 BorderThickness="0,0,0,1"
-                Padding="10" Width="1233">
+                Padding="10"
+                Width="1234" Height="221">
 
             <!-- One row ribbon -->
             <Grid VerticalAlignment="Top">
@@ -93,8 +94,8 @@
                         BorderThickness="1"
                         Padding="8"
                         Margin="10,0,10,0"
-                        Height="140"
-                        VerticalAlignment="Top">
+                        Height="147"
+                        VerticalAlignment="Center">
 
                     <DockPanel LastChildFill="True">
                         <TextBlock DockPanel.Dock="Bottom"
@@ -145,6 +146,7 @@
                                     </StackPanel>
                                 </Button>
 
+                                <!-- ✅ Paste Insert icon visible -->
                                 <Button Style="{StaticResource SmallRibbonButton}"
                                         Margin="0,6,0,0"
                                         Click="PasteInsert_Click">
@@ -164,17 +166,17 @@
                         BorderBrush="#C8C8C8"
                         BorderThickness="1"
                         Padding="8"
-                        Margin="0,0,10,0"
-                        Height="140"
-                        VerticalAlignment="Top">
+                        Height="148"
+                        VerticalAlignment="Center">
 
-                    <DockPanel LastChildFill="True">
+                    <DockPanel LastChildFill="True" Margin="0">
+
                         <TextBlock DockPanel.Dock="Bottom"
                                    Text="Editing"
                                    FontSize="12"
                                    Foreground="#555"
                                    HorizontalAlignment="Center"
-                                   Margin="0,6,0,0"/>
+                                   Margin="0,6,0,0" TextAlignment="Center"/>
 
                         <UniformGrid Columns="3" Rows="1" HorizontalAlignment="Center" VerticalAlignment="Center">
                             <Button Style="{StaticResource RibbonButton}"
@@ -211,13 +213,13 @@
                 </Border>
 
                 <!-- CONVERSION OPTIONS GROUP -->
-                <Border Grid.Column="3"
+                <Border Grid.Column="2"
                         BorderBrush="#C8C8C8"
                         BorderThickness="1"
                         Padding="10"
-                        Margin="0,0,38,0"
-                        Height="140"
-                        VerticalAlignment="Center">
+                        Margin="235,0,43,0"
+                        Height="148"
+                        VerticalAlignment="Center" Grid.ColumnSpan="2">
 
                     <DockPanel LastChildFill="True">
                         <TextBlock DockPanel.Dock="Bottom"
@@ -227,46 +229,78 @@
                                    HorizontalAlignment="Center"
                                    Margin="0,6,0,0"/>
 
+                        <!-- ✅ Rows: options on top, image buttons at bottom (as per your red mark) -->
                         <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="210"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
 
-                            <StackPanel Grid.Column="0">
-                                <CheckBox x:Name="ForceMathCheckBox"
-                                          Content="Force ChatGPT Math"
-                                          FontSize="11"/>
+                            <!-- Top: checkboxes + radio buttons -->
+                            <Grid Grid.Row="0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="210"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
 
-                                <!-- ✅ Word Equation Export toggle -->
-                                <CheckBox x:Name="ExportAsWordEquationsCheckBox"
-                                          Content="Export DOCX as Word Equations"
-                                          FontSize="11"
-                                          Margin="0,4,0,0" Checked="ExportAsWordEquationsCheckBox_Checked"/>
+                                <StackPanel Grid.Column="0">
+                                    <CheckBox x:Name="ForceMathCheckBox"
+                                              Content="Force ChatGPT Math"
+                                              FontSize="11"/>
 
-                                <CheckBox x:Name="RemoveLinesCheckBox"
-                                          Content="Remove Horizontal Lines"
-                                          FontSize="11"
-                                          Margin="0,4,0,0"/>
+                                    <CheckBox x:Name="ExportAsWordEquationsCheckBox"
+                                              Content="Export DOCX as Word Equations"
+                                              FontSize="11"
+                                              Margin="0,4,0,0"
+                                              Checked="ExportAsWordEquationsCheckBox_Checked"/>
 
-                                <CheckBox x:Name="RemoveHeadingEmojiCheckBox"
-                                          Content="Remove Headings Emojis"
-                                          FontSize="11"
-                                          Margin="0,4,0,0"/>
-                            </StackPanel>
+                                    <CheckBox x:Name="RemoveLinesCheckBox"
+                                              Content="Remove Horizontal Lines"
+                                              FontSize="11"
+                                              Margin="0,4,0,0"/>
 
-                            <StackPanel Grid.Column="1">
-                                <RadioButton x:Name="NormalBulletsRadio" IsChecked="True" FontSize="11">
-                                    <TextBlock Text="Normal Bullet List (No Emoji)" TextWrapping="Wrap"/>
-                                </RadioButton>
+                                    <CheckBox x:Name="RemoveHeadingEmojiCheckBox"
+                                              Content="Remove Headings Emojis"
+                                              FontSize="11"
+                                              Margin="0,4,0,0"/>
+                                </StackPanel>
 
-                                <RadioButton x:Name="EmojiBulletsRadio" FontSize="11" Margin="0,4,0,0">
-                                    <TextBlock Text="Keep Emoji in Bullet List" TextWrapping="Wrap"/>
-                                </RadioButton>
+                                <StackPanel Grid.Column="1">
+                                    <RadioButton x:Name="NormalBulletsRadio" IsChecked="True" FontSize="11">
+                                        <TextBlock Text="Normal Bullet List (No Emoji)" TextWrapping="Wrap"/>
+                                    </RadioButton>
 
-                                <RadioButton x:Name="EmojiOnlyRadio" FontSize="11" Margin="0,4,0,0">
-                                    <TextBlock Text="Emoji Only" TextWrapping="Wrap"/>
-                                </RadioButton>
+                                    <RadioButton x:Name="EmojiBulletsRadio" FontSize="11" Margin="0,4,0,0">
+                                        <TextBlock Text="Keep Emoji in Bullet List" TextWrapping="Wrap"/>
+                                    </RadioButton>
+
+                                    <RadioButton x:Name="EmojiOnlyRadio" FontSize="11" Margin="0,4,0,0">
+                                        <TextBlock Text="Emoji Only" TextWrapping="Wrap"/>
+                                    </RadioButton>
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- Bottom: image buttons EXACTLY at the marked bottom area -->
+                            <StackPanel Grid.Row="1"
+                                        Orientation="Horizontal"
+                                        HorizontalAlignment="Center"
+                                        Margin="0,6,0,0">
+                                <Button Style="{StaticResource SmallRibbonButton}"
+                                        Click="PasteImage_Click"
+                                        Margin="0,0,10,0" Height="21">
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                        <TextBlock Text="📷" FontSize="14" Height="27" Width="18"/>
+                                        <TextBlock Text="Paste Img" FontSize="11" Margin="6,0,0,0" Height="19"/>
+                                    </StackPanel>
+                                </Button>
+
+                                <Button Style="{StaticResource SmallRibbonButton}"
+                                        Click="AddImageFile_Click" Height="24">
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                        <TextBlock Text="🖼️" FontSize="14"/>
+                                        <TextBlock Text="Add Img" FontSize="11" Margin="6,0,0,0"/>
+                                    </StackPanel>
+                                </Button>
                             </StackPanel>
                         </Grid>
                     </DockPanel>
@@ -277,7 +311,7 @@
                         BorderBrush="#C8C8C8"
                         BorderThickness="1"
                         Padding="8"
-                        Height="140"
+                        Height="148"
                         VerticalAlignment="Center"
                         Margin="413,0,28,0"
                         Grid.ColumnSpan="2">
@@ -331,6 +365,11 @@
 
         <!-- MAIN CONTENT -->
         <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="587*"/>
+                <ColumnDefinition Width="380*"/>
+                <ColumnDefinition Width="283*"/>
+            </Grid.ColumnDefinitions>
             <Grid.RowDefinitions>
                 <RowDefinition Height="*"/>
                 <RowDefinition Height="Auto"/>
@@ -338,17 +377,17 @@
 
             <TextBox x:Name="InputTextBox"
                      Grid.Row="0"
-                     Margin="10"
+                     Margin="10,-41,10,20"
                      AcceptsReturn="True"
                      AcceptsTab="True"
                      TextWrapping="Wrap"
                      VerticalScrollBarVisibility="Auto"
-                     FontSize="16"/>
+                     FontSize="16" Grid.ColumnSpan="3"/>
 
             <StackPanel Grid.Row="1"
                         Orientation="Horizontal"
                         HorizontalAlignment="Right"
-                        Margin="0,8,10,10">
+                        Margin="0,8,10,10" Grid.Column="2" Width="130">
 
                 <Button x:Name="ExportButton"
                         Width="130"

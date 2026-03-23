@@ -1,23 +1,213 @@
-﻿using System;
+﻿#nullable enable
+
+using ChatFormatterPro.Exporters;
+using Microsoft.Win32;
+using MigraDoc.DocumentObjectModel;
+using MigraDoc.Rendering;
+using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Windows;
-using Microsoft.Win32;
-
-using ChatFormatterPro.Exporters;
-
-using MigraDoc.DocumentObjectModel;
-using MigraDoc.Rendering;
-
-using System.Linq;
-using System.Collections.Generic;
+using System.Windows.Controls;
+using System.Windows.Media.Imaging;
 
 namespace ChatFormatterPro
 {
     public partial class MainWindow : Window
     {
-        // ✅ Convert emoji tick/box to PDF-safe symbols that fonts can render
+        // ---------------- IMAGE INSERT (A + B) ----------------
+        private const string ImgTokenPrefix = "{{IMG:";
+        private const string ImgTokenSuffix = "}}";
+
+        private bool _mathPasteHooked;
+
+        private static string EnsureImagesFolder()
+        {
+            string folder = System.IO.Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                "ChatFormatterPro_Images"
+            );
+            Directory.CreateDirectory(folder);
+            return folder;
+        }
+
+        // ✅ Detect token line: {{IMG:C:\path\file.png}}
+        private static bool TryGetImgPathFromLine(string line, out string? path)
+        {
+            path = null;
+
+            if (string.IsNullOrWhiteSpace(line)) return false;
+
+            string t = line.Trim();
+            if (!t.StartsWith(ImgTokenPrefix) || !t.EndsWith(ImgTokenSuffix))
+                return false;
+
+            string inner = t.Substring(
+                ImgTokenPrefix.Length,
+                t.Length - ImgTokenPrefix.Length - ImgTokenSuffix.Length
+            ).Trim();
+
+            inner = inner.Trim('"');
+
+            if (!File.Exists(inner)) return false;
+            path = inner;
+            return true;
+        }
+
+        private void PasteImage_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (!Clipboard.ContainsImage())
+                {
+                    MessageBox.Show("Clipboard has no image.");
+                    return;
+                }
+
+                var img = Clipboard.GetImage();
+                if (img == null)
+                {
+                    MessageBox.Show("Clipboard image not found.");
+                    return;
+                }
+
+                string folder = EnsureImagesFolder();
+                string file = System.IO.Path.Combine(
+                    folder,
+                    $"img_{DateTime.Now:yyyyMMdd_HHmmss}.png"
+                );
+
+                using (var fs = new FileStream(file, FileMode.Create, FileAccess.Write))
+                {
+                    var encoder = new PngBitmapEncoder();
+                    encoder.Frames.Add(BitmapFrame.Create(img));
+                    encoder.Save(fs);
+                }
+
+                InsertImageTokenIntoTextbox(file);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Paste Image failed: " + ex.Message);
+            }
+        }
+
+        private void AddImageFile_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var dlg = new Microsoft.Win32.OpenFileDialog
+                {
+                    Filter = "Images|*.png;*.jpg;*.jpeg;*.bmp;*.gif;*.tif;*.tiff|All files|*.*",
+                    Multiselect = false
+                };
+
+                if (dlg.ShowDialog() != true) return;
+
+                string src = dlg.FileName;
+                string folder = EnsureImagesFolder();
+
+                string ext = System.IO.Path.GetExtension(src);
+                string dest = System.IO.Path.Combine(
+                    folder,
+                    $"img_{DateTime.Now:yyyyMMdd_HHmmss}{ext}"
+                );
+
+                File.Copy(src, dest, overwrite: true);
+
+                InsertImageTokenIntoTextbox(dest);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Add Image failed: " + ex.Message);
+            }
+        }
+
+        private void InsertImageTokenIntoTextbox(string imagePath)
+        {
+            string tokenLine = $"{ImgTokenPrefix}{imagePath}{ImgTokenSuffix}";
+
+            int caret = InputTextBox.CaretIndex;
+            string text = InputTextBox.Text ?? "";
+
+            string insert =
+                (caret > 0 && caret < text.Length && text[caret - 1] != '\n')
+                ? "\r\n"
+                : "";
+
+            insert += tokenLine + "\r\n";
+
+            InputTextBox.Text = text.Insert(caret, insert);
+            InputTextBox.CaretIndex = caret + insert.Length;
+            InputTextBox.Focus();
+        }
+
+        public MainWindow()
+        {
+            InitializeComponent();
+            HookMathPasteHandlerOnce();
+        }
+
+        private void HookMathPasteHandlerOnce()
+        {
+            if (_mathPasteHooked) return;
+
+            DataObject.AddPastingHandler(InputTextBox, OnEditorPaste);
+            _mathPasteHooked = true;
+        }
+
+        private void OnEditorPaste(object sender, DataObjectPastingEventArgs e)
+        {
+            if (!e.SourceDataObject.GetDataPresent(DataFormats.UnicodeText, true))
+                return;
+
+            string? pastedText = e.SourceDataObject.GetData(DataFormats.UnicodeText) as string;
+            if (string.IsNullOrWhiteSpace(pastedText))
+                return;
+
+            pastedText = pastedText.Replace("\r\n", "\n").Replace("\r", "\n");
+
+            string normalized = MathLatexHelper.NormalizeInformalMath(pastedText);
+
+            e.CancelCommand();
+            InsertTextAtCaret(InputTextBox, normalized);
+        }
+
+        private void NormalizeEditorContent()
+        {
+            string current = InputTextBox.Text ?? "";
+            if (string.IsNullOrWhiteSpace(current))
+                return;
+
+            string normalized = MathLatexHelper.NormalizeInformalMath(current);
+            if (normalized == current)
+                return;
+
+            int caretPos = InputTextBox.CaretIndex;
+            InputTextBox.Text = normalized;
+            InputTextBox.CaretIndex = Math.Min(caretPos, normalized.Length);
+        }
+
+        private static void InsertTextAtCaret(TextBox textBox, string text)
+        {
+            if (textBox == null || text == null)
+                return;
+
+            int start = textBox.SelectionStart;
+            int length = textBox.SelectionLength;
+
+            string before = textBox.Text.Substring(0, start);
+            string after = textBox.Text.Substring(start + length);
+
+            textBox.Text = before + text + after;
+            textBox.CaretIndex = start + text.Length;
+        }
+
+        #region PDF helpers
+
         private static string PdfSafeSymbols(string s)
         {
             return (s ?? "")
@@ -25,10 +215,13 @@ namespace ChatFormatterPro
                 .Replace("✔️", "✔")
                 .Replace("✔", "✔")
                 .Replace("☑", "✔")
-                .Replace("☐", "");   // or use "□" if you want empty box visible
+                .Replace("☐", "");
         }
 
-        // ✅ Converts Unicode superscripts (¹²³⁻⁺) → caret format (^12, ^-3, ^+5)
+        #endregion
+
+        #region Superscript helpers
+
         private static string NormalizeUnicodeSuperscripts(string text)
         {
             if (string.IsNullOrEmpty(text)) return text;
@@ -61,7 +254,7 @@ namespace ChatFormatterPro
                         sb.Append(map[text[i]]);
                         i++;
                     }
-                    i--; // step back
+                    i--;
                 }
                 else
                 {
@@ -72,11 +265,6 @@ namespace ChatFormatterPro
             return sb.ToString();
         }
 
-        // ✅ Convert caret powers to Unicode superscripts
-        // Examples:
-        // 2^12  → 2¹²
-        // (2^3) → (2³)
-        // x^-2  → x⁻²
         private static string ConvertCaretPowersToUnicodeSuperscripts(string text)
         {
             if (string.IsNullOrEmpty(text)) return text;
@@ -106,7 +294,6 @@ namespace ChatFormatterPro
                 return sb.ToString();
             }
 
-            // Match: ^12, ^-3, ^{12}, ^{-3}
             return Regex.Replace(
                 text,
                 @"\^\{?(?<exp>[+-]?\d+)\}?",
@@ -114,10 +301,7 @@ namespace ChatFormatterPro
             );
         }
 
-        public MainWindow()
-        {
-            InitializeComponent();
-        }
+        #endregion
 
         #region Clipboard
 
@@ -153,10 +337,9 @@ namespace ChatFormatterPro
 
         #endregion
 
-        #region Text Cleaning
+        #region Cleaning pipeline (UI display)
 
-        // ✅ Base cleaning (bullets, headings, force-math cleanup)
-        private string CleanText(string input)
+        private string CleanTextForDisplay(string input)
         {
             string text = input ?? string.Empty;
 
@@ -169,12 +352,18 @@ namespace ChatFormatterPro
                     text,
                     @"^[\s]*(👉|🔥|⭐|❗|⚠️|➡️|✔|✖|💡|📌)+",
                     "",
-                    RegexOptions.Multiline);
+                    RegexOptions.Multiline
+                );
             }
 
             if (NormalBulletsRadio.IsChecked == true)
             {
-                text = Regex.Replace(text, @"^[\s]*[•●▪️▶️➤➔➜➡️]", "•", RegexOptions.Multiline);
+                text = Regex.Replace(
+                    text,
+                    @"^[\s]*[•●▪️▶️➤➔➜➡️]",
+                    "•",
+                    RegexOptions.Multiline
+                );
             }
             else if (EmojiBulletsRadio.IsChecked == true)
             {
@@ -182,10 +371,14 @@ namespace ChatFormatterPro
             }
             else if (EmojiOnlyRadio.IsChecked == true)
             {
-                text = Regex.Replace(text, @"^[\s]*[-*•▶️➤➜➔➡️]", "⭐", RegexOptions.Multiline);
+                text = Regex.Replace(
+                    text,
+                    @"^[\s]*[-*•▶️➤➜➔➡️]",
+                    "⭐",
+                    RegexOptions.Multiline
+                );
             }
 
-            // ForceMath removes \( \) and \[ \] wrappers
             if (ForceMathCheckBox.IsChecked == true)
             {
                 text = Regex.Replace(text, @"\\\((.*?)\\\)", m => m.Groups[1].Value);
@@ -195,12 +388,10 @@ namespace ChatFormatterPro
             return text;
         }
 
-        // ✅ What user SEE in textbox (final should be superscripts like 2¹²)
-        private string ProcessText(string input)
+        private string ProcessTextForDisplay(string input)
         {
-            string text = CleanText(input);
+            string text = CleanTextForDisplay(input);
 
-            // Normalize then re-apply superscripts (stable for copy/paste from GPT)
             text = NormalizeUnicodeSuperscripts(text);
             text = ConvertCaretPowersToUnicodeSuperscripts(text);
 
@@ -209,24 +400,162 @@ namespace ChatFormatterPro
 
         private void ApplyTextCleaning()
         {
-            InputTextBox.Text = ProcessText(InputTextBox.Text);
+            InputTextBox.Text = ProcessTextForDisplay(InputTextBox.Text);
         }
 
         #endregion
+
+        #region Export pipeline (Word Equation mode)
+
+        private static bool LooksLikeMath(string s)
+        {
+            if (string.IsNullOrWhiteSpace(s)) return false;
+            s = s.Trim();
+
+            if (s.Contains(@"\(") || s.Contains(@"\)") || s.Contains(@"\[") || s.Contains(@"\]"))
+                return true;
+
+            if (Regex.IsMatch(
+                s,
+                @"\\(frac|sqrt|times|div|cdot|pi|theta|alpha|beta|gamma|left|right|sum|int)\b"
+            ))
+                return true;
+
+            if (s.Contains("^") || s.Contains("_") || s.Contains("{") || s.Contains("}"))
+                return true;
+
+            bool hasDigit = s.Any(char.IsDigit);
+            bool hasOps = s.IndexOfAny(new[] { '=', '+', '-', '×', '*', '÷', '/', '(', ')', '[', ']' }) >= 0;
+            int letterCount = s.Count(char.IsLetter);
+
+            if (hasDigit && hasOps && letterCount <= 6) return true;
+
+            return false;
+        }
+
+        private static string WrapStandaloneMathLines(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return text;
+
+            var lines = text.Replace("\r\n", "\n").Split('\n');
+            for (int i = 0; i < lines.Length; i++)
+            {
+                string raw = lines[i] ?? "";
+                string t = raw.Trim();
+
+                if (string.IsNullOrWhiteSpace(t)) continue;
+
+                if (t.StartsWith(@"\(") && t.EndsWith(@"\)")) continue;
+                if (t.StartsWith(@"\[") && t.EndsWith(@"\]")) continue;
+
+                if (LooksLikeMath(t))
+                {
+                    lines[i] = $@"\({t}\)";
+                }
+            }
+
+            return string.Join("\n", lines).Replace("\n", "\r\n");
+        }
+
+        private static string AutoWrapInlineMathSegments(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return text;
+
+            var rx = new Regex(
+                @"(?<!\\)\b\\(frac|sqrt|times|div|cdot|pi|theta|alpha|beta|gamma|left|right)\b[^\s]*" +
+                @"|" +
+                @"(?<!\\)\([^\(\)\r\n]{0,60}[0-9a-zA-Z\}\{_\^\+\-\*/×÷=][^\(\)\r\n]{0,60}\)" +
+                @"|" +
+                @"(?<!\\)\b[a-zA-Z0-9]+\s*(\^|_)\s*\{?[+\-]?\d+[a-zA-Z0-9]*\}?" +
+                @"|" +
+                @"(?<!\\)\b\d+\s*(/|×|÷|\*)\s*\d+\b",
+                RegexOptions.Compiled
+            );
+
+            var lines = text.Replace("\r\n", "\n").Split('\n');
+
+            for (int i = 0; i < lines.Length; i++)
+            {
+                string line = lines[i];
+                if (string.IsNullOrWhiteSpace(line)) continue;
+
+                string t = line.Trim();
+
+                if ((t.StartsWith(@"\(") && t.EndsWith(@"\)")) || (t.StartsWith(@"\[") && t.EndsWith(@"\]")))
+                    continue;
+
+                lines[i] = rx.Replace(line, m =>
+                {
+                    string s = m.Value;
+
+                    if (s.Contains(@"\(") || s.Contains(@"\)") || s.Contains(@"\[") || s.Contains(@"\]"))
+                        return s;
+
+                    if (s.Contains("http") || s.Contains(@":\") || s.Contains(@"\\"))
+                        return s;
+
+                    return $@"\({s}\)";
+                });
+            }
+
+            return string.Join("\n", lines).Replace("\n", "\r\n");
+        }
+
+        private string PrepareForEquationExport(string input)
+        {
+            bool forceMath = ForceMathCheckBox.IsChecked == true;
+
+            string text = CleanTextForDisplay(input);
+
+            text = NormalizeUnicodeSuperscripts(text);
+
+            text = Regex.Replace(text, @"(?<![\w\)])-(\d+|[A-Za-z]+)\^", @"(-$1)^");
+            text = Regex.Replace(text, @"([A-Za-z0-9\)\]](?:\s*[+\-*/]\s*[A-Za-z0-9\(\)\[\]]+)+)\^", @"($1)^");
+            text = Regex.Replace(text, @"(\([^\)]+\)|[A-Za-z0-9]+)\^(-?\d+)\^(-?\d+)", @"($1^$2)^$3");
+            text = Regex.Replace(text, @"\^-(\d+)", @"^{- $1}".Replace(" ", ""));
+            text = MathLatexHelper.ConvertPowersToLatex(text);
+
+            text = WrapStandaloneMathLines(text);
+
+            if (forceMath)
+            {
+                text = AutoWrapInlineMathSegments(text);
+            }
+
+            return text;
+        }
+
+        #endregion
+
+        private static bool LooksLikeStandaloneMath(string s)
+        {
+            if (string.IsNullOrWhiteSpace(s)) return false;
+
+            if (s.Contains("=") && s.Contains("^"))
+                return true;
+
+            if (s.Contains("^"))
+            {
+                if (!Regex.IsMatch(s, @"[A-Za-z]{4,}"))
+                    return true;
+            }
+
+            if (s.Contains(@"\frac") || s.Contains(@"\sqrt"))
+                return true;
+
+            return false;
+        }
 
         #region ChatGPT helpers
 
         private void RenderLatex_Click(object sender, RoutedEventArgs e)
         {
-            MessageBox.Show("TEST: I am running the latest code");
-
-            string input = InputTextBox.Text;
-            InputTextBox.Text = MathLatexHelper.ConvertPowersToLatex(input);
+            NormalizeEditorContent();
         }
 
         private void RewriteLatex_Click(object sender, RoutedEventArgs e)
         {
-            string input = InputTextBox.Text;
+            string input = InputTextBox.Text ?? "";
             InputTextBox.Text = MathLatexHelper.ConvertPowersToLatex(input);
         }
 
@@ -253,31 +582,24 @@ namespace ChatFormatterPro
                 {
                     Filter = "Word Document (*.docx)|*.docx",
                     DefaultExt = ".docx",
-                    FileName = "ChatFormatterPro_Export.docx"
+                    FileName = $"ChatFormatterPro_Export_{DateTime.Now:yyyyMMdd_HHmmss}.docx"
                 };
 
                 if (dlg.ShowDialog() != true) return;
 
-                // ✅ always clean text first (bullets, headings, etc.)
-                string content = ProcessText(InputTextBox.Text ?? "");
+                string rawInput = InputTextBox.Text ?? "";
 
-                // ✅ If checkbox is OFF → export exactly what you SEE (2¹² stays 2¹²)
                 if (ExportAsWordEquationsCheckBox.IsChecked != true)
                 {
+                    string content = ProcessTextForDisplay(rawInput);
                     DocxExporter.Export(content, dlg.FileName, "Exported Content");
                     MessageBox.Show("DOCX saved successfully! (Superscript mode)");
                     return;
                 }
 
-                // ✅ If checkbox is ON → export as REAL Word Equations (fractions/roots/powers)
-                // Step 1: superscripts ¹² → caret ^12
-                content = NormalizeUnicodeSuperscripts(content);
+                string eqContent = PrepareForEquationExport(rawInput);
 
-                // Step 2: caret powers → LaTeX markers \(2^{12}\)
-                content = MathLatexHelper.ConvertPowersToLatex(content);
-
-                // Step 3: export (DocxExporter converts \( ... \) into Word Equation objects)
-                DocxExporter.Export(content, dlg.FileName, "Exported Content");
+                DocxExporter.Export(eqContent, dlg.FileName, "Exported Content");
                 MessageBox.Show("DOCX saved successfully! (Word Equation mode)");
             }
             catch (Exception ex)
@@ -288,7 +610,7 @@ namespace ChatFormatterPro
 
         #endregion
 
-        #region Export HTML ✅
+        #region Export HTML
 
         private void ExportHtml_Click(object sender, RoutedEventArgs e)
         {
@@ -303,7 +625,24 @@ namespace ChatFormatterPro
 
                 if (dlg.ShowDialog() != true) return;
 
-                HtmlExporter.Export(ProcessText(InputTextBox.Text ?? ""), dlg.FileName, "Exported Content");
+                string text = ProcessTextForDisplay(InputTextBox.Text ?? "");
+                var lines = text.Replace("\r\n", "\n").Split('\n');
+
+                for (int i = 0; i < lines.Length; i++)
+                {
+                    if (TryGetImgPathFromLine(lines[i], out var imgPath))
+                    {
+                        if (string.IsNullOrWhiteSpace(imgPath) || !File.Exists(imgPath))
+                            continue;
+
+                        string uri = new Uri(imgPath).AbsoluteUri;
+                        lines[i] = $"<img src=\"{uri}\" style=\"max-width:100%; height:auto;\" />";
+                    }
+                }
+
+                string htmlReady = string.Join("\n", lines).Replace("\n", "\r\n");
+
+                HtmlExporter.Export(htmlReady, dlg.FileName, "Exported Content");
                 MessageBox.Show("HTML saved successfully!");
             }
             catch (Exception ex)
@@ -329,7 +668,7 @@ namespace ChatFormatterPro
 
                 if (dlg.ShowDialog() != true) return;
 
-                string text = ProcessText(InputTextBox.Text ?? "");
+                string text = ProcessTextForDisplay(InputTextBox.Text ?? "");
                 string[] lines = text.Replace("\r\n", "\n").Split('\n');
 
                 var sb = new StringBuilder();
@@ -367,7 +706,11 @@ namespace ChatFormatterPro
 
                 if (dlg.ShowDialog() != true) return;
 
-                File.WriteAllText(dlg.FileName, ProcessText(InputTextBox.Text ?? ""), Encoding.UTF8);
+                File.WriteAllText(
+                    dlg.FileName,
+                    ProcessTextForDisplay(InputTextBox.Text ?? ""),
+                    Encoding.UTF8
+                );
 
                 FileOpener.Open(dlg.FileName);
                 MessageBox.Show("TXT saved successfully!");
@@ -380,7 +723,7 @@ namespace ChatFormatterPro
 
         #endregion
 
-        #region Export PDF (MigraDoc) ✅ NOW SUPPORTS TABLES + TICK SYMBOL
+        #region Export PDF (MigraDoc)
 
         private void SaveToPdf_Click(object sender, RoutedEventArgs e)
         {
@@ -406,7 +749,7 @@ namespace ChatFormatterPro
                 section.PageSetup.TopMargin = Unit.FromCentimeter(2);
                 section.PageSetup.BottomMargin = Unit.FromCentimeter(2);
 
-                string[] lines = ProcessText(InputTextBox.Text ?? "")
+                string[] lines = ProcessTextForDisplay(InputTextBox.Text ?? "")
                     .Replace("\r\n", "\n")
                     .Split('\n');
 
@@ -445,6 +788,19 @@ namespace ChatFormatterPro
                     if (string.IsNullOrWhiteSpace(line))
                     {
                         section.AddParagraph();
+                        idx++;
+                        continue;
+                    }
+
+                    if (TryGetImgPathFromLine(line, out var imgPath))
+                    {
+                        if (!string.IsNullOrWhiteSpace(imgPath) && File.Exists(imgPath))
+                        {
+                            var img = section.AddImage(imgPath);
+                            img.LockAspectRatio = true;
+                            img.Width = Unit.FromCentimeter(14);
+                            section.AddParagraph();
+                        }
                         idx++;
                         continue;
                     }
@@ -516,10 +872,8 @@ namespace ChatFormatterPro
                     idx++;
                 }
 
-                var renderer = new PdfDocumentRenderer(unicode: true)
-                {
-                    Document = pdfDoc
-                };
+                var renderer = new PdfDocumentRenderer() { Document = pdfDoc };
+
                 renderer.RenderDocument();
                 renderer.Save(dlg.FileName);
 
@@ -536,7 +890,7 @@ namespace ChatFormatterPro
 
         private void ExportAsWordEquationsCheckBox_Checked(object sender, RoutedEventArgs e)
         {
-
+            // no-op
         }
     }
 }
